@@ -236,18 +236,14 @@ impl Display for Repo {
                 index,
                 conflicts,
             } => {
-                match kind {
-                    ConflictKind::Merge => {
-                        Display::fmt(orig, f)?;
-                        f.write_str(" <- ")?;
-                        Display::fmt(merge, f)?;
-                    }
-                    ConflictKind::Rebase => {
-                        Display::fmt(orig, f)?;
-                        f.write_str(" -> ")?;
-                        Display::fmt(merge, f)?;
-                    }
-                }
+                Display::fmt(orig, f)?;
+
+                f.write_str(match kind {
+                    ConflictKind::Merge => " <- ",
+                    ConflictKind::Rebase => " -> ",
+                })?;
+
+                Display::fmt(merge, f)?;
 
                 fmt_changes(f, &working_tree, &index, Some(*conflicts))?;
             }

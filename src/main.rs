@@ -1,5 +1,4 @@
 #![feature(let_chains)]
-#![feature(try_find)]
 
 use repo::{Branch, Commit, Repo};
 use std::{env, error::Error, path::PathBuf, process};
