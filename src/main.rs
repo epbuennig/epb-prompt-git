@@ -34,30 +34,11 @@ fn exec() -> Result<Repo, ExecError> {
     };
 
     if let Some(conflicts) = conflicts {
-        let source = repo.find_reference("ORIG_HEAD")?;
-        let target = repo.find_reference("MERGE_HEAD")?;
-
-        let source_local = util::try_resolve_oid_to_branch(
-            &repo,
-            source
-                .target()
-                .expect("fata error when resolving oid of ORIG_HEAD"),
-        )?
-        .expect("fatal error when resolving oid to branch, branch not found");
-        let target_local = util::try_resolve_oid_to_branch(
-            &repo,
-            target
-                .target()
-                .expect("fata error when resolving oid of MERGE_HEAD"),
-        )?
-        .expect("fatal error when resolving oid to branch, branch not found");
-
-        let source_remote = util::resovle_remote_divergence(&repo, &source)?;
-        let target_remote = util::resovle_remote_divergence(&repo, &target)?;
-
+        let (source, target, kind) = util::try_resolve_conflict_kind(&repo)?;
         return Ok(Repo::conflict(
-            Branch::new(source_local, source_remote),
-            Branch::new(target_local, target_remote),
+            kind,
+            source,
+            target,
             working_tree,
             index,
             conflicts,
@@ -73,7 +54,7 @@ fn exec() -> Result<Repo, ExecError> {
     }
 
     // get remote if not detached, if exists, get ahead behind
-    let remote = util::resovle_remote_divergence(&repo, &head)?;
+    let remote = util::resolve_remote_divergence(&repo, &head)?;
 
     // we're not detached so shorthand should give us the local branch name
     let branch = Branch::new(
@@ -81,21 +62,29 @@ fn exec() -> Result<Repo, ExecError> {
         remote,
     );
 
-    Ok(if !working_tree.any() && !index.any() {
-        Repo::clean(branch)
-    } else {
+    Ok(if working_tree.any() || index.any() {
         Repo::working(branch, working_tree, index)
+    } else {
+        Repo::clean(branch)
     })
 }
 
 fn main() {
     match exec() {
         Ok(result) => println!("{:#}", result),
+        Err(err) if matches!(err, ExecError::NoRepo) => {
+            println!(
+                "[{}no repo{}]",
+                termion::color::Fg(termion::color::Red),
+                termion::style::Reset
+            )
+        }
         Err(err) => {
             println!(
-                "[{fg}error{n}]",
-                fg = termion::color::Fg(termion::color::Red),
-                n = termion::style::Reset
+                "[{}{}error{}]",
+                termion::style::Bold,
+                termion::color::Fg(termion::color::Red),
+                termion::style::Reset
             );
 
             if let Some("--debug") = env::args().nth(2).as_deref() {

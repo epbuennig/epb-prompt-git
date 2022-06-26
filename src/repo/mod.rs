@@ -61,6 +61,12 @@ impl Deref for Commit {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConflictKind {
+    Merge,
+    Rebase,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Repo {
     Headless {
         working_tree: Changes,
@@ -80,6 +86,7 @@ pub enum Repo {
         index: Changes,
     },
     Conflicted {
+        kind: ConflictKind,
         orig: Branch,
         merge: Branch,
         working_tree: Changes,
@@ -117,6 +124,7 @@ impl Repo {
     }
 
     pub fn conflict(
+        kind: ConflictKind,
         source: Branch,
         target: Branch,
         working_tree: Changes,
@@ -124,6 +132,7 @@ impl Repo {
         conflicts: NonZeroUsize,
     ) -> Self {
         Self::Conflicted {
+            kind,
             orig: source,
             merge: target,
             working_tree,
@@ -160,13 +169,13 @@ fn fmt_changes(
     }
 
     if working_tree.any() {
-        write!(f, " {}w{}[", color::Fg(color::Blue), style::Reset)?;
+        write!(f, " {}w{}[", color::Fg(color::Yellow), style::Reset)?;
         Display::fmt(working_tree, f)?;
         f.write_char(']')?;
     }
 
     if index.any() {
-        write!(f, " {}i{}[", color::Fg(color::Blue), style::Reset)?;
+        write!(f, " {}i{}[", color::Fg(color::Green), style::Reset)?;
         Display::fmt(index, f)?;
         f.write_char(']')?;
     }
@@ -220,15 +229,25 @@ impl Display for Repo {
                 fmt_changes(f, &working_tree, &index, None)?;
             }
             Repo::Conflicted {
+                kind,
                 orig,
                 merge,
                 working_tree,
                 index,
                 conflicts,
             } => {
-                Display::fmt(merge, f)?;
-                f.write_str(" -> ")?;
-                Display::fmt(orig, f)?;
+                match kind {
+                    ConflictKind::Merge => {
+                        Display::fmt(orig, f)?;
+                        f.write_str(" <- ")?;
+                        Display::fmt(merge, f)?;
+                    }
+                    ConflictKind::Rebase => {
+                        Display::fmt(orig, f)?;
+                        f.write_str(" -> ")?;
+                        Display::fmt(merge, f)?;
+                    }
+                }
 
                 fmt_changes(f, &working_tree, &index, Some(*conflicts))?;
             }

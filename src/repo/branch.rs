@@ -4,22 +4,6 @@ use std::fmt::{Debug, Display};
 pub struct RemoteBranch(String, String);
 
 impl RemoteBranch {
-    pub fn split(refname: String) -> Self {
-        let mut iter = refname.trim_start_matches("refs/remotes/").split('/');
-
-        let remote = iter
-            .next()
-            .expect("fatal error on remote branch parse, did not contain remote name")
-            .to_owned();
-
-        let branch = iter
-            .next()
-            .expect("fatal error on remote branch parse, did not contain branch name")
-            .to_owned();
-
-        Self::new(remote, branch)
-    }
-
     pub fn new(remote: String, branch: String) -> Self {
         Self(remote, branch)
     }
