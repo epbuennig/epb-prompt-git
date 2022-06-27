@@ -1,6 +1,6 @@
 use crate::repo::{Branch, Change, Changes, ConflictKind, Divergence, RemoteBranch};
 use git2::{BranchType, Error, ErrorCode, Oid, Reference, Repository, Status};
-use std::{borrow::Cow, num::NonZeroUsize, path::Path};
+use std::{borrow::Cow, path::Path};
 
 pub const ERROR_NON_UNICODE: &str = "fatal error on resolving reference, was not utf8";
 pub const ERROR_NON_DIRECT: &str = "fatal error on resolving reference, was not direct";
@@ -33,9 +33,7 @@ pub fn try_get_repo_for(path: &Path) -> Option<Repository> {
     None
 }
 
-pub fn get_local_changes(
-    repo: &Repository,
-) -> Result<(Changes, Changes, Option<NonZeroUsize>), Error> {
+pub fn get_local_changes(repo: &Repository) -> Result<(Changes, Changes, usize), Error> {
     let (mut working_tree, mut index, mut conflicts) = (Changes::new(), Changes::new(), 0usize);
 
     for status in repo.statuses(None)?.iter() {
@@ -56,7 +54,7 @@ pub fn get_local_changes(
         }
     }
 
-    Ok((working_tree, index, NonZeroUsize::new(conflicts)))
+    Ok((working_tree, index, conflicts))
 }
 
 pub fn try_resolve_oid_to_branch(

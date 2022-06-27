@@ -1,6 +1,5 @@
 use std::{
     fmt::{Debug, Display, Write},
-    num::NonZeroUsize,
     ops::Deref,
 };
 
@@ -91,7 +90,7 @@ pub enum Repo {
         merge: Branch,
         working_tree: Changes,
         index: Changes,
-        conflicts: NonZeroUsize,
+        conflicts: usize,
     },
 }
 
@@ -129,7 +128,7 @@ impl Repo {
         target: Branch,
         working_tree: Changes,
         index: Changes,
-        conflicts: NonZeroUsize,
+        conflicts: usize,
     ) -> Self {
         Self::Conflicted {
             kind,
@@ -146,15 +145,15 @@ fn fmt_changes(
     f: &mut std::fmt::Formatter<'_>,
     working_tree: &Changes,
     index: &Changes,
-    conflicts: Option<NonZeroUsize>,
+    conflicts: usize,
 ) -> std::fmt::Result {
     use termion::{color, style};
 
-    if working_tree.any() || index.any() || conflicts.is_some() {
+    if working_tree.any() || index.any() || conflicts != 0 {
         f.write_str(" ::")?;
     }
 
-    if let Some(conflicts) = conflicts {
+    if conflicts != 0 {
         if f.alternate() {
             write!(
                 f,
@@ -204,7 +203,7 @@ impl Display for Repo {
                     write!(f, "[headless]")?;
                 }
 
-                fmt_changes(f, &working_tree, &index, None)?;
+                fmt_changes(f, &working_tree, &index, 0)?;
             }
             Repo::Clean { head } => Display::fmt(head, f)?,
             Repo::Detached {
@@ -218,7 +217,7 @@ impl Display for Repo {
                     write!(f, "{head:7}")?;
                 }
 
-                fmt_changes(f, &working_tree, &index, None)?;
+                fmt_changes(f, &working_tree, &index, 0)?;
             }
             Repo::Working {
                 branch,
@@ -226,7 +225,7 @@ impl Display for Repo {
                 index,
             } => {
                 Display::fmt(branch, f)?;
-                fmt_changes(f, &working_tree, &index, None)?;
+                fmt_changes(f, &working_tree, &index, 0)?;
             }
             Repo::Conflicted {
                 kind,
@@ -245,7 +244,7 @@ impl Display for Repo {
 
                 Display::fmt(merge, f)?;
 
-                fmt_changes(f, &working_tree, &index, Some(*conflicts))?;
+                fmt_changes(f, &working_tree, &index, *conflicts)?;
             }
         }
 

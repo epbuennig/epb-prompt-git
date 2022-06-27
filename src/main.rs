@@ -1,5 +1,6 @@
 #![feature(let_chains)]
 
+use git2::{ErrorCode, Repository};
 use repo::{Branch, Commit, Repo};
 use std::{env, error::Error, path::PathBuf, process};
 
@@ -32,7 +33,14 @@ fn exec() -> Result<Repo, ExecError> {
         Err(_) => return Ok(Repo::headless(working_tree, index)),
     };
 
-    if let Some(conflicts) = conflicts {
+    let check_for_merge_rebase = |repo: &Repository| match repo.find_reference("ORIG_HEAD") {
+        Ok(_) => Ok(true),
+        Err(err) if err.code() == ErrorCode::NotFound => Ok(false),
+        Err(err) => return Err(err),
+    };
+
+    // if conflicts are all resolved we may still be rebasing/merging
+    if conflicts != 0 || check_for_merge_rebase(&repo)? {
         let (source, target, kind) = util::try_resolve_conflict_kind(&repo)?;
         return Ok(Repo::conflict(
             kind,
