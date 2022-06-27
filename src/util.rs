@@ -65,12 +65,9 @@ pub fn try_resolve_oid_to_branch(
 ) -> Result<Option<git2::Branch<'_>>, Error> {
     for res in repo.branches(None)? {
         let (branch, _) = res?;
-        let reference = branch.into_reference();
-        if reference.target().expect(ERROR_NON_DIRECT) == oid {
-            return Ok(Some(repo.find_branch(
-                reference.shorthand().expect(ERROR_NON_UNICODE),
-                BranchType::Local,
-            )?));
+        let reference = branch.get();
+        if let Some(ref_target) = reference.target() && ref_target == oid {
+            return Ok(Some(branch));
         }
     }
 
@@ -134,11 +131,11 @@ pub fn try_resolve_conflict_kind(
     let (kind, target) = match repo.find_reference("MERGE_HEAD") {
         Ok(target) => (ConflictKind::Merge, target),
         Err(err) if err.code() == ErrorCode::NotFound => {
-            let rebase = match repo.find_reference("REBASE_HEAD") {
+            let rebase = match repo.find_reference("ORIG_HEAD") {
                 Ok(rebase) => rebase,
-                Err(err) if err.code() == ErrorCode::NotFound => panic!(
-                    "fatal error when resolving conflicts, no MERGE_HEAD or REBASE_HEAD found"
-                ),
+                Err(err) if err.code() == ErrorCode::NotFound => {
+                    panic!("fatal error when resolving conflicts, no MERGE_HEAD or ORIG_HEAD found")
+                }
                 Err(err) => return Err(err),
             };
             (ConflictKind::Rebase, rebase)
@@ -150,14 +147,14 @@ pub fn try_resolve_conflict_kind(
         &repo,
         source
             .target()
-            .expect("fatal error when resolving oid of ORIG_HEAD"),
+            .expect("fatal error when resolving oid of HEAD"),
     )?
     .expect("fatal error when resolving oid to branch, branch not found");
     let target_local = try_resolve_oid_to_branch(
         &repo,
         target
             .target()
-            .expect("fatal error when resolving oid of MERGE_HEAD"),
+            .expect("fatal error when resolving oid of MERGE_HEAD or ORIG_HEAD"),
     )?
     .expect("fatal error when resolving oid to branch, branch not found");
 
