@@ -29,7 +29,7 @@ fn get_prompt(path: &Path) -> Result<repo::Prompt, Box<dyn Error>> {
 
     let mut commit = None;
     let (mut local, mut remote) = (None, None);
-    let (mut ahead, mut behind, mut conflicts, mut stash, mut ignored) = (0, 0, 0, 0, 0);
+    let (mut ahead, mut behind, mut conflicts, mut stash, mut _ignored) = (0, 0, 0, 0, 0);
     let (mut working_tree, mut index) = (Changes::new(), Changes::new());
 
     for line in lines.lines().filter(|s| !s.is_empty()) {
@@ -76,7 +76,7 @@ fn get_prompt(path: &Path) -> Result<repo::Prompt, Box<dyn Error>> {
 
         // ! <path>     ignored
         if line.starts_with("! ") {
-            ignored += 1;
+            _ignored += 1;
             continue;
         }
 
@@ -143,7 +143,7 @@ fn get_prompt(path: &Path) -> Result<repo::Prompt, Box<dyn Error>> {
     // eprintln!("local:       {:?}", local);
     // eprintln!("remote:      {:?}", remote);
     // eprintln!("ab:          {:?}", (ahead, behind));
-    // eprintln!("conflcict:   {:?}", conflicts);
+    // eprintln!("conflict:    {:?}", conflicts);
     // eprintln!("stash:       {:?}", stash);
     // eprintln!("ignore:      {:?}", ignored);
     // eprintln!("wt:          {:?}", working_tree);
