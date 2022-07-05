@@ -14,7 +14,6 @@ pub struct Commit(String);
 
 impl Commit {
     pub fn new(hash: String) -> Self {
-        assert_eq!(hash.len(), 40, "commit hash must be 40 chars long");
         Self(hash)
     }
 }
@@ -66,79 +65,144 @@ pub enum ConflictKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Repo {
+pub enum ConflictRef {
+    Commit(Commit),
+    Branch(Branch),
+}
+
+impl ConflictRef {
+    pub fn commit(hash: String) -> Self {
+        Self::Commit(Commit::new(hash))
+    }
+
+    pub fn branch(local: String) -> Self {
+        Self::Branch(Branch::new(local, None))
+    }
+}
+
+impl Display for ConflictRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConflictRef::Commit(commit) => Display::fmt(commit, f),
+            ConflictRef::Branch(branch) => {
+                // use spare flag to show no remote info on conflict
+                if f.alternate() {
+                    write!(f, "{:#0}", branch)
+                } else {
+                    write!(f, "{:0}", branch)
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Prompt {
     Headless {
         working_tree: Changes,
         index: Changes,
+        stash: usize,
     },
     Clean {
         head: Branch,
+        stash: usize,
     },
     Detached {
         head: Commit,
         working_tree: Changes,
         index: Changes,
+        stash: usize,
     },
     Working {
         branch: Branch,
         working_tree: Changes,
         index: Changes,
+        stash: usize,
     },
     Conflicted {
         kind: ConflictKind,
-        orig: Branch,
-        merge: Branch,
+        source: ConflictRef,
+        target: ConflictRef,
         working_tree: Changes,
         index: Changes,
         conflicts: usize,
+        stash: usize,
     },
 }
 
-impl Repo {
-    pub fn headless(working_tree: Changes, index: Changes) -> Self {
+impl Prompt {
+    pub fn headless(working_tree: Changes, index: Changes, stash: usize) -> Self {
         Self::Headless {
             working_tree,
             index,
+            stash,
         }
     }
 
-    pub fn clean(branch: Branch) -> Self {
-        Self::Clean { head: branch }
+    pub fn clean(branch: Branch, stash: usize) -> Self {
+        Self::Clean {
+            head: branch,
+            stash,
+        }
     }
 
-    pub fn detached(commit: Commit, working_tree: Changes, index: Changes) -> Self {
+    pub fn detached(commit: Commit, working_tree: Changes, index: Changes, stash: usize) -> Self {
         Self::Detached {
             head: commit,
             working_tree,
             index,
+            stash,
         }
     }
 
-    pub fn working(branch: Branch, working_tree: Changes, index: Changes) -> Self {
+    pub fn working(branch: Branch, working_tree: Changes, index: Changes, stash: usize) -> Self {
         Self::Working {
             branch,
             working_tree,
             index,
+            stash,
         }
     }
 
     pub fn conflict(
         kind: ConflictKind,
-        source: Branch,
-        target: Branch,
+        source: ConflictRef,
+        target: ConflictRef,
         working_tree: Changes,
         index: Changes,
         conflicts: usize,
+        stash: usize,
     ) -> Self {
         Self::Conflicted {
             kind,
-            orig: source,
-            merge: target,
+            source,
+            target,
             working_tree,
             index,
             conflicts,
+            stash,
         }
     }
+}
+
+fn fmt_stash(f: &mut std::fmt::Formatter<'_>, stash: usize) -> std::fmt::Result {
+    use termion::{color, style};
+
+    if stash != 0 {
+        if f.alternate() {
+            write!(
+                f,
+                " :: {}s{}[{}]",
+                color::Fg(color::Magenta),
+                style::Reset,
+                stash
+            )?;
+        } else {
+            write!(f, " :: s[{}]", stash)?;
+        }
+    }
+
+    Ok(())
 }
 
 fn fmt_changes(
@@ -182,14 +246,15 @@ fn fmt_changes(
     Ok(())
 }
 
-impl Display for Repo {
+impl Display for Prompt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use termion::{color, style};
 
         match self {
-            Repo::Headless {
+            Prompt::Headless {
                 working_tree,
                 index,
+                stash,
             } => {
                 if f.alternate() {
                     write!(
@@ -203,13 +268,18 @@ impl Display for Repo {
                     write!(f, "[headless]")?;
                 }
 
+                fmt_stash(f, *stash)?;
                 fmt_changes(f, &working_tree, &index, 0)?;
             }
-            Repo::Clean { head } => Display::fmt(head, f)?,
-            Repo::Detached {
+            Prompt::Clean { head, stash } => {
+                Display::fmt(head, f)?;
+                fmt_stash(f, *stash)?;
+            }
+            Prompt::Detached {
                 head,
                 working_tree,
                 index,
+                stash,
             } => {
                 if f.alternate() {
                     write!(f, "{head:#7}")?;
@@ -217,33 +287,42 @@ impl Display for Repo {
                     write!(f, "{head:7}")?;
                 }
 
+                fmt_stash(f, *stash)?;
                 fmt_changes(f, &working_tree, &index, 0)?;
             }
-            Repo::Working {
+            Prompt::Working {
                 branch,
                 working_tree,
                 index,
+                stash,
             } => {
                 Display::fmt(branch, f)?;
+                fmt_stash(f, *stash)?;
                 fmt_changes(f, &working_tree, &index, 0)?;
             }
-            Repo::Conflicted {
+            Prompt::Conflicted {
                 kind,
-                orig,
-                merge,
+                source,
+                target,
                 working_tree,
                 index,
                 conflicts,
+                stash,
             } => {
-                Display::fmt(orig, f)?;
+                match kind {
+                    ConflictKind::Merge => {
+                        Display::fmt(source, f)?;
+                        f.write_str(" <- ")?;
+                        Display::fmt(target, f)?;
+                    }
+                    ConflictKind::Rebase => {
+                        Display::fmt(target, f)?;
+                        f.write_str(" -> ")?;
+                        Display::fmt(source, f)?;
+                    }
+                }
 
-                f.write_str(match kind {
-                    ConflictKind::Merge => " <- ",
-                    ConflictKind::Rebase => " -> ",
-                })?;
-
-                Display::fmt(merge, f)?;
-
+                fmt_stash(f, *stash)?;
                 fmt_changes(f, &working_tree, &index, *conflicts)?;
             }
         }

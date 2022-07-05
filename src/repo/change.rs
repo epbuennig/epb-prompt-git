@@ -1,4 +1,3 @@
-use git2::Status;
 use std::{
     array,
     fmt::{Debug, Display},
@@ -17,36 +16,6 @@ pub enum Change {
 }
 
 impl Change {
-    pub fn new(status: Status) -> (Option<Self>, Option<Self>) {
-        //  5 bits index                    0x00000 - 0x00010
-        //  2 bits gap                      0x00020 - 0x00040
-        //  5 bits working tree             0x00080 - 0x00800
-        //  2 bits gab                      0x01000 - 0x02000
-        //  2 bits ignored/conflicted       0x04000 - 0x08000
-        // 16 bits unused                   0x10000 ...
-        let index = match status.bits() & 0b11111 {
-            0b00001 => Some(Self::Add),
-            0b00010 => Some(Self::Mod),
-            0b00100 => Some(Self::Del),
-            0b01000 => Some(Self::Ren),
-            0b10000 => Some(Self::Typ),
-            _ => None,
-        };
-
-        // add to working tree is untracked in general
-        // ren and typ are differently ordered according to libgit2
-        let working_tree = match (status.bits() >> 7) & 0b11111 {
-            0b00001 => Some(Self::Add),
-            0b00010 => Some(Self::Mod),
-            0b00100 => Some(Self::Del),
-            0b01000 => Some(Self::Typ),
-            0b10000 => Some(Self::Ren),
-            _ => None,
-        };
-
-        (working_tree, index)
-    }
-
     fn from_idx(value: usize) -> Self {
         match value {
             0 => Self::Add,

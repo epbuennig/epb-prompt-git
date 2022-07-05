@@ -129,12 +129,6 @@ impl Branch {
         }
     }
 
-    // this may be used for specialized printing down the line outside of this module
-    #[allow(dead_code)]
-    pub fn local(&self) -> &str {
-        self.local.as_str()
-    }
-
     pub fn remote(&self) -> Option<&RemoteBranch> {
         self.remote.as_ref().map(|&(ref r, _)| r)
     }
@@ -152,34 +146,45 @@ impl Display for Branch {
             Some(remote) => {
                 let divergence = self.divergence();
 
+                if f.alternate() {
+                    write!(f, "{:#}", self.local)?;
+                } else {
+                    write!(f, "{}", self.local)?;
+                }
+
+                // sparse printing
+                if f.sign_aware_zero_pad() {
+                    return Ok(());
+                }
+
+                if f.alternate() {
+                    write!(f, "[{remote:#}]")?;
+                } else {
+                    write!(f, "[{remote}]")?;
+                }
+
                 match (f.alternate(), divergence) {
-                    (true, None) => write!(
-                        f,
-                        "{:#}[{remote:#}][{}{}]",
-                        self.local,
-                        color::Fg(color::Green),
-                        style::Reset
-                    )?,
-                    (true, Some(divergence)) => {
-                        write!(f, "{:#}[{remote:#}][{divergence:#}]", self.local,)?
-                    }
-                    (false, None) => write!(f, "{}[{remote}][]", self.local)?,
-                    (false, Some(divergence)) => {
-                        write!(f, "{}[{remote}][{divergence}]", self.local)?
-                    }
+                    (true, None) => write!(f, "[{}{}]", color::Fg(color::Green), style::Reset)?,
+                    (true, Some(divergence)) => write!(f, "[{divergence:#}]")?,
+                    (false, None) => f.write_str("[]")?,
+                    (false, Some(divergence)) => write!(f, "[{divergence}]")?,
                 }
             }
             None => {
                 if f.alternate() {
-                    write!(
-                        f,
-                        "{:#}[{}-{}]",
-                        self.local,
-                        color::Fg(color::Blue),
-                        style::Reset
-                    )?
+                    write!(f, "{:#}", self.local)?;
                 } else {
-                    write!(f, "{}[-]", self.local)?
+                    write!(f, "{}", self.local)?;
+                }
+
+                // sparse printing
+                if f.sign_aware_zero_pad() {
+                    return Ok(());
+                }
+                if f.alternate() {
+                    write!(f, "[{}-{}]", color::Fg(color::Blue), style::Reset)?;
+                } else {
+                    f.write_str("[-]")?;
                 }
             }
         }
