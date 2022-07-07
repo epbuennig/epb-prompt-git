@@ -94,7 +94,7 @@ fn get_prompt(path: &Path) -> Result<repo::Prompt, Box<dyn Error>> {
         if let Some((x, y)) = util::parse_xy_line(line, "1 ") {
             match x {
                 '.' => {}
-                'A' => index[Change::Ren] += 1,
+                'A' => index[Change::Add] += 1,
                 'M' => index[Change::Mod] += 1,
                 'D' => index[Change::Del] += 1,
                 'R' => index[Change::Ren] += 1,
@@ -105,7 +105,7 @@ fn get_prompt(path: &Path) -> Result<repo::Prompt, Box<dyn Error>> {
 
             match y {
                 '.' => {}
-                'A' => working_tree[Change::Ren] += 1,
+                'A' => working_tree[Change::Add] += 1,
                 'M' => working_tree[Change::Mod] += 1,
                 'D' => working_tree[Change::Del] += 1,
                 'R' => working_tree[Change::Ren] += 1,
