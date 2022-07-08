@@ -97,9 +97,7 @@ fn get_prompt(path: &Path) -> Result<repo::Prompt, Box<dyn Error>> {
                 'A' => index[Change::Add] += 1,
                 'M' => index[Change::Mod] += 1,
                 'D' => index[Change::Del] += 1,
-                'R' => index[Change::Ren] += 1,
                 'T' => index[Change::Typ] += 1,
-                'C' => {}
                 x => eprintln!("idx: {x}"),
             }
 
@@ -108,9 +106,7 @@ fn get_prompt(path: &Path) -> Result<repo::Prompt, Box<dyn Error>> {
                 'A' => working_tree[Change::Add] += 1,
                 'M' => working_tree[Change::Mod] += 1,
                 'D' => working_tree[Change::Del] += 1,
-                'R' => working_tree[Change::Ren] += 1,
                 'T' => working_tree[Change::Typ] += 1,
-                'C' => {}
                 x => eprintln!("idx: {x}"),
             }
 
@@ -122,7 +118,20 @@ fn get_prompt(path: &Path) -> Result<repo::Prompt, Box<dyn Error>> {
         // xR   renamed in work tree
         // xC   copied in work tree
         if let Some((x, y)) = util::parse_xy_line(line, "2 ") {
-            eprintln!("2: {x}{y}");
+            match x {
+                '.' => {}
+                'R' => index[Change::Ren] += 1,
+                'C' => {}
+                x => eprintln!("idx: {x}"),
+            }
+
+            match y {
+                '.' => {}
+                'R' => working_tree[Change::Ren] += 1,
+                'C' => {}
+                x => eprintln!("idx: {x}"),
+            }
+
             continue;
         }
 
