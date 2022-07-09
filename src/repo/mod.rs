@@ -97,6 +97,59 @@ impl Display for ConflictRef {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Tag(String);
+
+impl Tag {
+    pub fn new(tag: String) -> Self {
+        Self(tag)
+    }
+}
+
+impl Display for Tag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use termion::{color, style};
+
+        if f.alternate() {
+            write!(
+                f,
+                "[{}{}{}{}]",
+                style::Bold,
+                color::Fg(color::Yellow),
+                self.0,
+                style::Reset
+            )
+        } else {
+            write!(f, "[{}]", self.0)
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DetachedRef {
+    Commit(Commit),
+    Tag(Tag),
+}
+
+impl DetachedRef {
+    pub fn commit(hash: String) -> Self {
+        Self::Commit(Commit::new(hash))
+    }
+
+    pub fn tag(tag: String) -> Self {
+        Self::Tag(Tag::new(tag))
+    }
+}
+
+impl Display for DetachedRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DetachedRef::Commit(commit) => Display::fmt(commit, f),
+            DetachedRef::Tag(tag) => Display::fmt(tag, f),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Prompt {
     Headless {
         working_tree: Changes,
@@ -108,7 +161,7 @@ pub enum Prompt {
         stash: usize,
     },
     Detached {
-        head: Commit,
+        head: DetachedRef,
         working_tree: Changes,
         index: Changes,
         stash: usize,
@@ -146,9 +199,14 @@ impl Prompt {
         }
     }
 
-    pub fn detached(commit: Commit, working_tree: Changes, index: Changes, stash: usize) -> Self {
+    pub fn detached(
+        head: DetachedRef,
+        working_tree: Changes,
+        index: Changes,
+        stash: usize,
+    ) -> Self {
         Self::Detached {
-            head: commit,
+            head,
             working_tree,
             index,
             stash,

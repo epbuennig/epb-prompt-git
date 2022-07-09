@@ -169,8 +169,36 @@ fn get_prompt(path: &Path) -> Result<repo::Prompt, Box<dyn Error>> {
     } else {
         // if conflicts are non zero then this may be a detached rebase head
         if conflicts == 0 {
+            let mut commit = commit;
+            let output = Command::new("git")
+                .current_dir(path)
+                .arg("show-ref")
+                .output()?;
+
+            let lines = String::from_utf8_lossy(&output.stdout);
+
+            // see notes below
+            let mut is_commit_resolved = false;
+            for (id, resolved) in lines
+                .lines()
+                .map(|line| line.split_once(' ').expect("<id> <ref>"))
+            {
+                if id == commit {
+                    commit = resolved;
+                    is_commit_resolved = true;
+                }
+            }
+
+            fn resolve_tag(reference: &str, is_resolved: bool) -> repo::DetachedRef {
+                if is_resolved {
+                    repo::DetachedRef::tag(reference.trim_start_matches("refs/tags/").to_owned())
+                } else {
+                    repo::DetachedRef::commit(reference.to_owned())
+                }
+            }
+
             return Ok(repo::Prompt::detached(
-                repo::Commit::new(commit.to_owned()),
+                resolve_tag(commit, is_commit_resolved),
                 working_tree,
                 index,
                 stash,
@@ -212,21 +240,21 @@ fn get_prompt(path: &Path) -> Result<repo::Prompt, Box<dyn Error>> {
 
         // only use if `refs/heads`?
         // this may need to be recursive
-        let (mut is_source_branch, mut is_target_branch) = (false, false);
-        for (id, reference) in lines
+        let (mut is_source_resolved, mut is_target_resolved) = (false, false);
+        for (id, resolved) in lines
             .lines()
             .map(|line| line.split_once(' ').expect("<id> <ref>"))
         {
             if id == source {
-                source = reference;
-                is_source_branch = true;
+                source = resolved;
+                is_source_resolved = true;
             } else if id == target {
-                target = reference;
-                is_target_branch = true;
+                target = resolved;
+                is_target_resolved = true;
             }
         }
 
-        fn resolve(reference: &str, is_branch: bool) -> repo::ConflictRef {
+        fn resolve_head(reference: &str, is_branch: bool) -> repo::ConflictRef {
             if is_branch {
                 repo::ConflictRef::branch(reference.trim_start_matches("refs/heads/").to_owned())
             } else {
@@ -236,8 +264,8 @@ fn get_prompt(path: &Path) -> Result<repo::Prompt, Box<dyn Error>> {
 
         return Ok(repo::Prompt::conflict(
             kind,
-            resolve(&source, is_source_branch),
-            resolve(&target, is_target_branch),
+            resolve_head(&source, is_source_resolved),
+            resolve_head(&target, is_target_resolved),
             working_tree,
             index,
             conflicts,
