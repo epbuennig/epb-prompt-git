@@ -24,12 +24,27 @@ impl Display for RemoteBranch {
                 f,
                 "{fg}{}{r}/{fg}{}{r}",
                 self.0,
-                self.1,
+                // sparse printing
+                if f.sign_aware_zero_pad() {
+                    "~"
+                } else {
+                    &self.1
+                },
                 fg = color::Fg(color::Blue),
                 r = style::Reset
             )
         } else {
-            write!(f, "{}/{}", self.0, self.1)
+            write!(
+                f,
+                "{}/{}",
+                self.0,
+                // sparse printing
+                if f.sign_aware_zero_pad() {
+                    "~"
+                } else {
+                    &self.1
+                }
+            )
         }
     }
 }
@@ -157,10 +172,11 @@ impl Display for Branch {
                     return Ok(());
                 }
 
-                if f.alternate() {
-                    write!(f, "[{remote:#}]")?;
-                } else {
-                    write!(f, "[{remote}]")?;
+                match (f.alternate(), remote.1 == self.local) {
+                    (true, false) => write!(f, "[{remote:#}]")?,
+                    (true, true) => write!(f, "[{remote:#0}]")?,
+                    (false, false) => write!(f, "[{remote:}]")?,
+                    (false, true) => write!(f, "[{remote:0}]")?,
                 }
 
                 match (f.alternate(), divergence) {
