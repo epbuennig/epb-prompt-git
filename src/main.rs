@@ -120,6 +120,7 @@ fn get_prompt(path: &Path) -> Result<repo::Prompt, Box<dyn Error>> {
                 '.' => {}
                 'R' => index[Change::Ren] += 1,
                 'C' => {}
+                'M' => index[Change::Mod] += 1,
                 x => eprintln!("idx: {x}"),
             }
 
@@ -127,6 +128,7 @@ fn get_prompt(path: &Path) -> Result<repo::Prompt, Box<dyn Error>> {
                 '.' => {}
                 'R' => working_tree[Change::Ren] += 1,
                 'C' => {}
+                'M' => working_tree[Change::Mod] += 1,
                 x => eprintln!("idx: {x}"),
             }
 
